@@ -1,0 +1,53 @@
+from dataclasses import dataclass
+from typing import List, Optional
+
+import requests
+import yfinance as yf
+
+from .config import settings
+
+# yfinance usa curl_cffi (suplantacion TLS) por defecto para evitar el
+# bloqueo de bots de Yahoo; eso no funciona detras de proxies con
+# reterminacion TLS. Una sesion requests normal si funciona.
+_session = requests.Session()
+_session.headers.update({"User-Agent": "Mozilla/5.0"})
+
+
+@dataclass
+class Candidate:
+    ticker: str
+    price: float
+    price_change_pct: float
+    avg_volume: float
+    opportunity_score: float
+
+
+class StockScreener:
+    def __init__(self):
+        self.universe = settings.stock_universe
+
+    def screen(self) -> List[Candidate]:
+        candidates = [c for c in (self._evaluate(t) for t in self.universe) if c is not None]
+        candidates.sort(key=lambda c: c.opportunity_score, reverse=True)
+        return candidates[: settings.max_candidates]
+
+    def _evaluate(self, ticker: str) -> Optional[Candidate]:
+        try:
+            hist = yf.Ticker(ticker, session=_session).history(period="5d")
+        except Exception as exc:
+            print(f"[screener] no se pudo obtener datos de {ticker}: {exc}")
+            return None
+
+        if len(hist) < 2:
+            return None
+
+        latest_price = float(hist["Close"].iloc[-1])
+        prev_price = float(hist["Close"].iloc[-2])
+        price_change_pct = (latest_price - prev_price) / prev_price * 100
+        avg_volume = float(hist["Volume"].mean())
+
+        if avg_volume < settings.min_volume or abs(price_change_pct) < settings.min_price_change_pct:
+            return None
+
+        opportunity_score = abs(price_change_pct) * 0.6 + (avg_volume / 10_000_000) * 0.4
+        return Candidate(ticker, latest_price, price_change_pct, avg_volume, opportunity_score)
