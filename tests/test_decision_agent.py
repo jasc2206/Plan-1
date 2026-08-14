@@ -3,7 +3,10 @@ from trading_agent.screener import Candidate
 
 
 def make_candidate(price_change_pct):
-    return Candidate("TST", price=100.0, price_change_pct=price_change_pct, avg_volume=5_000_000, opportunity_score=1.0)
+    return Candidate(
+        "TST", price=100.0, price_change_pct=price_change_pct,
+        avg_volume=5_000_000, dollar_volume=500_000_000, opportunity_score=1.0,
+    )
 
 
 def test_rule_based_buy_on_positive_momentum():

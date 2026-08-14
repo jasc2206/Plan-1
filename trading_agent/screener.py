@@ -19,6 +19,7 @@ class Candidate:
     price: float
     price_change_pct: float
     avg_volume: float
+    dollar_volume: float
     opportunity_score: float
 
 
@@ -45,9 +46,10 @@ class StockScreener:
         prev_price = float(hist["Close"].iloc[-2])
         price_change_pct = (latest_price - prev_price) / prev_price * 100
         avg_volume = float(hist["Volume"].mean())
+        dollar_volume = avg_volume * latest_price
 
-        if avg_volume < settings.min_volume or abs(price_change_pct) < settings.min_price_change_pct:
+        if dollar_volume < settings.min_dollar_volume or abs(price_change_pct) < settings.min_price_change_pct:
             return None
 
-        opportunity_score = abs(price_change_pct) * 0.6 + (avg_volume / 10_000_000) * 0.4
-        return Candidate(ticker, latest_price, price_change_pct, avg_volume, opportunity_score)
+        opportunity_score = abs(price_change_pct) * 0.6 + min(dollar_volume / 1_000_000_000, 10) * 0.4
+        return Candidate(ticker, latest_price, price_change_pct, avg_volume, dollar_volume, opportunity_score)

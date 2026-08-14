@@ -38,10 +38,14 @@ class Settings:
 
     stock_universe: List[str] = field(default_factory=lambda: _list_env(
         "STOCK_UNIVERSE",
-        "NVDA,MSFT,AAPL,GOOGL,AMZN,META,AVGO,TSLA,NFLX,AMD,CSCO,COST,ASML,MU,PLTR",
+        "NVDA,MSFT,AAPL,GOOGL,AMZN,META,AVGO,TSLA,NFLX,AMD,CSCO,COST,ASML,MU,PLTR,"
+        "PAXG-USD,XRP-USD,SPCX",
     ))
 
-    min_volume: int = field(default_factory=lambda: _int_env("MIN_VOLUME", 1_000_000))
+    # Volumen en dolares (precio * volumen), no en unidades: comparar
+    # "1M acciones" contra "1M tokens" no tiene sentido entre distintos
+    # tipos de activo (acciones vs. cripto), pero el volumen en dolares si.
+    min_dollar_volume: float = field(default_factory=lambda: _float_env("MIN_DOLLAR_VOLUME", 5_000_000.0))
     min_price_change_pct: float = field(default_factory=lambda: _float_env("MIN_PRICE_CHANGE_PCT", 2.0))
     max_candidates: int = field(default_factory=lambda: _int_env("MAX_CANDIDATES", 5))
 
