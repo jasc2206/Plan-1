@@ -53,3 +53,19 @@ class StockScreener:
 
         opportunity_score = abs(price_change_pct) * 0.6 + min(dollar_volume / 1_000_000_000, 10) * 0.4
         return Candidate(ticker, latest_price, price_change_pct, avg_volume, dollar_volume, opportunity_score)
+
+
+def get_latest_price(ticker: str) -> Optional[float]:
+    """Precio actual de cualquier ticker, sin pasar por los filtros del screener.
+
+    Se usa para valorar posiciones ya abiertas que no aparecen en la
+    watchlist del dia (porque no cumplen el filtro de movimiento/volumen).
+    """
+    try:
+        hist = yf.Ticker(ticker, session=_session).history(period="1d")
+    except Exception as exc:
+        print(f"[screener] no se pudo obtener precio de {ticker}: {exc}")
+        return None
+    if hist.empty:
+        return None
+    return float(hist["Close"].iloc[-1])

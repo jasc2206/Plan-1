@@ -1,10 +1,10 @@
-from typing import Dict
+from typing import Dict, List
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.trading.requests import MarketOrderRequest
 
-from .broker import Fill
+from .broker import Fill, PositionPnL
 from .risk import TradePlan
 
 
@@ -35,3 +35,15 @@ class AlpacaBroker:
 
     def positions_value(self, prices: Dict[str, float]) -> float:
         return sum(float(p.market_value) for p in self.client.get_all_positions())
+
+    def position_pnl(self, prices: Dict[str, float]) -> List[PositionPnL]:
+        result = []
+        for p in self.client.get_all_positions():
+            shares = int(float(p.qty))
+            avg_cost = float(p.avg_entry_price)
+            current_price = float(p.current_price) if p.current_price else prices.get(p.symbol, avg_cost)
+            result.append(PositionPnL(
+                p.symbol, shares, avg_cost, current_price,
+                float(p.unrealized_pl), float(p.unrealized_plpc) * 100,
+            ))
+        return result
