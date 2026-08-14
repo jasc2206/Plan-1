@@ -19,9 +19,9 @@ class PaperBrokerStub:
     posterior, cuando se configuren ALPACA_API_KEY / ALPACA_SECRET_KEY.
     """
 
-    def __init__(self, starting_cash: float):
+    def __init__(self, starting_cash: float, positions: Dict[str, int] = None):
         self.cash = starting_cash
-        self.positions: Dict[str, int] = {}
+        self.positions: Dict[str, int] = dict(positions) if positions else {}
         self.fills: List[Fill] = []
 
     def submit(self, plan: TradePlan) -> Fill:

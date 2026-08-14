@@ -4,6 +4,7 @@ from .decision_agent import DecisionAgent
 from .notifier import get_notifier
 from .risk import PortfolioState, RiskManager
 from .screener import StockScreener
+from .state import load_state, save_state
 
 
 def run_cycle() -> None:
@@ -19,7 +20,8 @@ def run_cycle() -> None:
 
     agent = DecisionAgent()
     risk = RiskManager()
-    broker = PaperBrokerStub(starting_cash=settings.starting_cash)
+    saved = load_state(settings.starting_cash)
+    broker = PaperBrokerStub(starting_cash=saved["cash"], positions=saved["positions"])
 
     for candidate in candidates:
         analysis = agent.analyze(candidate)
@@ -43,6 +45,7 @@ def run_cycle() -> None:
             f"(valor ${fill.shares * fill.price:.2f})"
         )
 
+    save_state(broker.cash, broker.positions)
     notifier.send(f"Efectivo simulado restante: ${broker.cash:,.2f}")
     notifier.send(f"Posiciones simuladas: {broker.positions}")
     notifier.send("=== Fin del ciclo ===")
