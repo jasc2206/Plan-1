@@ -59,3 +59,8 @@ def test_sell_full_position_clears_cost_basis():
 def test_position_pnl_skips_tickers_without_price():
     broker = PaperBrokerStub(starting_cash=0, positions={"AAA": 10}, cost_basis={"AAA": 500.0})
     assert broker.position_pnl({}) == []
+
+
+def test_paper_broker_never_reports_pending_orders():
+    broker = PaperBrokerStub(starting_cash=10_000)
+    assert broker.has_pending_order("AAA") is False

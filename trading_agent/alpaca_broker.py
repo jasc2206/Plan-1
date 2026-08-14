@@ -1,8 +1,8 @@
 from typing import Dict, List
 
 from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import OrderSide, TimeInForce
-from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, QueryOrderStatus, TimeInForce
+from alpaca.trading.requests import GetOrdersRequest, MarketOrderRequest
 
 from .broker import Fill, PositionPnL
 from .config import settings
@@ -43,6 +43,11 @@ class AlpacaBroker:
     @property
     def positions(self) -> Dict[str, int]:
         return {_to_internal_ticker(p.symbol): int(float(p.qty)) for p in self.client.get_all_positions()}
+
+    def has_pending_order(self, ticker: str) -> bool:
+        symbol = _to_order_symbol(ticker)
+        request = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[symbol])
+        return len(self.client.get_orders(request)) > 0
 
     def submit(self, plan: TradePlan) -> Fill:
         side = OrderSide.BUY if plan.action == "BUY" else OrderSide.SELL

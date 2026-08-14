@@ -27,3 +27,23 @@ def test_to_internal_ticker_ignores_usd_suffix_outside_universe(monkeypatch):
     # si no esta declarada en el universo de cripto configurado
     monkeypatch.setattr(settings, "stock_universe", ["AAPL"])
     assert ab._to_internal_ticker("FOOUSD") == "FOOUSD"
+
+
+class FakeTradingClient:
+    def __init__(self, open_orders):
+        self._open_orders = open_orders
+
+    def get_orders(self, request):
+        return [o for o in self._open_orders if o in request.symbols]
+
+
+def test_has_pending_order_true_when_open_order_exists():
+    broker = ab.AlpacaBroker.__new__(ab.AlpacaBroker)
+    broker.client = FakeTradingClient(open_orders=["AAPL"])
+    assert broker.has_pending_order("AAPL") is True
+
+
+def test_has_pending_order_false_when_no_open_order():
+    broker = ab.AlpacaBroker.__new__(ab.AlpacaBroker)
+    broker.client = FakeTradingClient(open_orders=[])
+    assert broker.has_pending_order("AAPL") is False

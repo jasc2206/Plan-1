@@ -71,6 +71,10 @@ def run_cycle() -> None:
                 f"(confianza {analysis.confidence:.0%}) - {analysis.reasoning}"
             )
 
+            if broker.has_pending_order(candidate.ticker):
+                notifier.send(f"{candidate.ticker}: ya hay una orden pendiente sin llenar, se omite para no duplicar")
+                continue
+
             portfolio = PortfolioState(
                 cash=broker.cash,
                 positions_value=broker.positions_value({candidate.ticker: candidate.price}),

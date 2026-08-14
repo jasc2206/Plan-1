@@ -68,6 +68,9 @@ class PaperBrokerStub:
     def positions_value(self, prices: Dict[str, float]) -> float:
         return sum(qty * prices.get(ticker, 0.0) for ticker, qty in self.positions.items())
 
+    def has_pending_order(self, ticker: str) -> bool:
+        return False  # los fills en memoria son inmediatos, nunca quedan pendientes
+
     def position_pnl(self, prices: Dict[str, float]) -> List[PositionPnL]:
         result = []
         for ticker, shares in self.positions.items():
