@@ -1,3 +1,4 @@
+from .alpaca_broker import AlpacaBroker
 from .broker import PaperBrokerStub
 from .config import settings
 from .decision_agent import DecisionAgent
@@ -7,9 +8,18 @@ from .screener import StockScreener
 from .state import load_state, save_state
 
 
+def make_broker():
+    if settings.alpaca_api_key and settings.alpaca_secret_key:
+        return AlpacaBroker(settings.alpaca_api_key, settings.alpaca_secret_key), False
+    saved = load_state(settings.starting_cash)
+    return PaperBrokerStub(starting_cash=saved["cash"], positions=saved["positions"]), True
+
+
 def run_cycle() -> None:
     notifier = get_notifier()
-    notifier.send("=== Ciclo de trading [DRY-RUN, sin broker real conectado] ===")
+    broker, is_simulated = make_broker()
+    mode = "SIMULADO en memoria (sin credenciales Alpaca)" if is_simulated else "Alpaca PAPER TRADING"
+    notifier.send(f"=== Ciclo de trading [{mode}] ===")
 
     candidates = StockScreener().screen()
     if not candidates:
@@ -20,8 +30,6 @@ def run_cycle() -> None:
 
     agent = DecisionAgent()
     risk = RiskManager()
-    saved = load_state(settings.starting_cash)
-    broker = PaperBrokerStub(starting_cash=saved["cash"], positions=saved["positions"])
 
     for candidate in candidates:
         analysis = agent.analyze(candidate)
@@ -41,13 +49,15 @@ def run_cycle() -> None:
 
         fill = broker.submit(plan)
         notifier.send(
-            f"[SIMULADO] {fill.action} {fill.shares} {fill.ticker} @ ${fill.price:.2f} "
-            f"(valor ${fill.shares * fill.price:.2f})"
+            f"[{'SIMULADO' if is_simulated else 'ALPACA PAPER'}] {fill.action} {fill.shares} "
+            f"{fill.ticker} @ ${fill.price:.2f} (valor ${fill.shares * fill.price:.2f})"
         )
 
-    save_state(broker.cash, broker.positions)
-    notifier.send(f"Efectivo simulado restante: ${broker.cash:,.2f}")
-    notifier.send(f"Posiciones simuladas: {broker.positions}")
+    if is_simulated:
+        save_state(broker.cash, broker.positions)
+
+    notifier.send(f"Efectivo restante: ${broker.cash:,.2f}")
+    notifier.send(f"Posiciones: {broker.positions}")
     notifier.send("=== Fin del ciclo ===")
 
 
