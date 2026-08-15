@@ -15,7 +15,11 @@ class TelegramNotifier:
 
     def send(self, message: str) -> None:
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-        requests.post(url, json={"chat_id": self.chat_id, "text": message}, timeout=10)
+        try:
+            requests.post(url, json={"chat_id": self.chat_id, "text": message}, timeout=10)
+        except requests.RequestException as exc:
+            # una notificacion perdida no debe abortar el ciclo de trading
+            print(f"[notifier] no se pudo enviar a Telegram: {exc}")
 
 
 def get_notifier():
