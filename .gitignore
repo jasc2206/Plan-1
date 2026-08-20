@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+trading_agent_state.json
+.pytest_cache/
