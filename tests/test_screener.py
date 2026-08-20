@@ -46,3 +46,53 @@ def test_dollar_volume_normalizes_across_asset_types(monkeypatch):
 
     assert "HIGHPRICE" in tickers  # $10.6M/dia en dolares, aunque solo 2,000 unidades
     assert "PENNY" not in tickers  # $5,500/dia en dolares, pese a 5M de unidades
+
+
+def test_compute_rsi_returns_none_with_insufficient_data():
+    closes = pd.Series([100.0, 101.0, 102.0])
+    assert screener_module._compute_rsi(closes, period=14) is None
+
+
+def test_compute_rsi_near_100_for_pure_uptrend():
+    closes = pd.Series([100.0 + i for i in range(30)])  # solo ganancias, sin perdidas
+    rsi = screener_module._compute_rsi(closes, period=14)
+    assert rsi > 95
+
+
+def test_compute_rsi_near_0_for_pure_downtrend():
+    closes = pd.Series([130.0 - i for i in range(30)])  # solo perdidas, sin ganancias
+    rsi = screener_module._compute_rsi(closes, period=14)
+    assert rsi < 5
+
+
+def test_compute_macd_returns_none_with_insufficient_data():
+    closes = pd.Series([float(i) for i in range(10)])
+    assert screener_module._compute_macd(closes) == (None, None, None)
+
+
+def test_compute_macd_positive_for_sustained_uptrend():
+    closes = pd.Series([100.0 + i * 0.5 for i in range(60)])
+    macd, macd_signal, macd_hist = screener_module._compute_macd(closes)
+    assert macd > 0
+    assert macd > macd_signal  # tendencia sostenida -> linea MACD por encima de la señal
+
+
+def test_screen_attaches_indicators_when_history_is_long_enough(monkeypatch):
+    long_close = [100.0 + i * 0.3 for i in range(60)] + [200.0]  # ultimo salto dispara el filtro
+    long_volume = [2_000_000] * 61
+
+    class LongHistoryTicker:
+        def __init__(self, ticker, session=None):
+            self.ticker = ticker
+
+        def history(self, period="3mo"):
+            return pd.DataFrame({"Close": long_close, "Volume": long_volume})
+
+    monkeypatch.setattr(screener_module, "yf", type("FakeModule", (), {"Ticker": LongHistoryTicker}))
+    monkeypatch.setattr(settings, "stock_universe", ["LONGHIST"])
+
+    candidates = screener_module.StockScreener().screen()
+    assert len(candidates) == 1
+    assert candidates[0].rsi is not None
+    assert candidates[0].macd is not None
+    assert candidates[0].macd_signal is not None

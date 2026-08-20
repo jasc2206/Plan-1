@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import requests
 import yfinance as yf
@@ -21,6 +21,39 @@ class Candidate:
     avg_volume: float
     dollar_volume: float
     opportunity_score: float
+    rsi: Optional[float] = None
+    macd: Optional[float] = None
+    macd_signal: Optional[float] = None
+    macd_hist: Optional[float] = None
+
+
+def _compute_rsi(closes, period: int = 14) -> Optional[float]:
+    """RSI de Wilder. None si no hay suficiente historia."""
+    if len(closes) < period + 1:
+        return None
+    delta = closes.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1 / period, min_periods=period, adjust=False).mean().iloc[-1]
+    avg_loss = loss.ewm(alpha=1 / period, min_periods=period, adjust=False).mean().iloc[-1]
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return float(100 - (100 / (1 + rs)))
+
+
+def _compute_macd(
+    closes, fast: int = 12, slow: int = 26, signal: int = 9
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    """(macd, señal, histograma). (None, None, None) si no hay suficiente historia."""
+    if len(closes) < slow + signal:
+        return None, None, None
+    ema_fast = closes.ewm(span=fast, adjust=False).mean()
+    ema_slow = closes.ewm(span=slow, adjust=False).mean()
+    macd_line = ema_fast - ema_slow
+    signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+    histogram = macd_line - signal_line
+    return float(macd_line.iloc[-1]), float(signal_line.iloc[-1]), float(histogram.iloc[-1])
 
 
 class StockScreener:
@@ -34,7 +67,10 @@ class StockScreener:
 
     def _evaluate(self, ticker: str) -> Optional[Candidate]:
         try:
-            hist = yf.Ticker(ticker, session=_session).history(period="5d")
+            # 3mo da suficiente historia para RSI(14) y MACD(12,26,9); el
+            # cambio de precio y el volumen reciente siguen usando solo los
+            # ultimos dias, igual que antes.
+            hist = yf.Ticker(ticker, session=_session).history(period="3mo")
         except Exception as exc:
             print(f"[screener] no se pudo obtener datos de {ticker}: {exc}")
             return None
@@ -45,14 +81,20 @@ class StockScreener:
         latest_price = float(hist["Close"].iloc[-1])
         prev_price = float(hist["Close"].iloc[-2])
         price_change_pct = (latest_price - prev_price) / prev_price * 100
-        avg_volume = float(hist["Volume"].mean())
+        avg_volume = float(hist["Volume"].tail(5).mean())
         dollar_volume = avg_volume * latest_price
 
         if dollar_volume < settings.min_dollar_volume or abs(price_change_pct) < settings.min_price_change_pct:
             return None
 
+        rsi = _compute_rsi(hist["Close"])
+        macd, macd_signal, macd_hist = _compute_macd(hist["Close"])
+
         opportunity_score = abs(price_change_pct) * 0.6 + min(dollar_volume / 1_000_000_000, 10) * 0.4
-        return Candidate(ticker, latest_price, price_change_pct, avg_volume, dollar_volume, opportunity_score)
+        return Candidate(
+            ticker, latest_price, price_change_pct, avg_volume, dollar_volume, opportunity_score,
+            rsi, macd, macd_signal, macd_hist,
+        )
 
 
 def get_latest_price(ticker: str) -> Optional[float]:
