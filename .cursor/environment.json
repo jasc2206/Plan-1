@@ -1,0 +1,4 @@
+{
+  "name": "Plan-1 trading agent",
+  "install": "bash .cursor/install.sh"
+}
